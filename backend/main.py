@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Dict
+from typing import List
 from graph import graph
 
 app = FastAPI(title="English Tutor API")
@@ -31,10 +31,11 @@ async def chat(request: ChatRequest):
     result = graph.invoke({
         "messages": messages,
         "reply": "",
+        "cleaned_reply": "",
         "audio_base64": ""
     })
     return ChatResponse(
-        reply=result["reply"],
+        reply=result.get("cleaned_reply") or result.get("reply", ""),
         audio_base64=result["audio_base64"]
     )
 
