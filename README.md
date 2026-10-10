@@ -52,3 +52,14 @@ npm run dev
 Open http://localhost:5173
 
 Type a message and Send — you will hear Kokoro TTS.
+
+## 3D Model
+
+Place your MetaPerson (or any) GLB at:
+
+```
+public/models/assistant.glb
+```
+
+The app loads it automatically.  
+Do **not** put models inside `src/public/`.

@@ -1,5 +1,11 @@
 node_modules
 dist
-.DS_Store
 .env
 .env.local
+backend/.env
+backend/__pycache__/
+backend/*.pyc
+backend/kokoro-v1.0.onnx
+backend/voices-v1.0.bin
+backend/graph.png
+*.log
