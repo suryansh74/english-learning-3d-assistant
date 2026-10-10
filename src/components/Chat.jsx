@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 export default function Chat({ messages, setMessages, apiKey, setIsSpeaking, setMouthOpen }) {
   const [listening, setListening] = useState(false)
   const [input, setInput] = useState('')
+  const [status, setStatus] = useState('')
   const recognitionRef = useRef(null)
   const messagesEndRef = useRef(null)
 
@@ -12,26 +13,56 @@ export default function Chat({ messages, setMessages, apiKey, setIsSpeaking, set
 
   const startListening = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('Speech recognition not supported in this browser. Use Chrome.')
+      setStatus('Speech recognition not supported. Use Chrome.')
       return
     }
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     const recognition = new SpeechRecognition()
     recognition.lang = 'en-US'
-    recognition.interimResults = false
+    recognition.interimResults = true
     recognition.continuous = false
 
-    recognition.onresult = (e) => {
-      const text = e.results[0][0].transcript
-      setInput(text)
-      handleSend(text)
+    recognition.onstart = () => {
+      setListening(true)
+      setStatus('Listening...')
     }
-    recognition.onend = () => setListening(false)
-    recognition.onerror = () => setListening(false)
+
+    recognition.onresult = (e) => {
+      let transcript = ''
+      for (let i = 0; i < e.results.length; i++) {
+        transcript += e.results[i][0].transcript
+      }
+      setInput(transcript)
+      if (e.results[e.results.length - 1].isFinal) {
+        setStatus('Got it! Sending...')
+        handleSend(transcript)
+      }
+    }
+
+    recognition.onend = () => {
+      setListening(false)
+      setStatus('')
+    }
+
+    recognition.onerror = (e) => {
+      setListening(false)
+      setStatus('Mic error: ' + e.error)
+      setTimeout(() => setStatus(''), 3000)
+    }
 
     recognitionRef.current = recognition
-    recognition.start()
-    setListening(true)
+    try {
+      recognition.start()
+    } catch (err) {
+      setStatus('Could not start mic')
+    }
+  }
+
+  const stopListening = () => {
+    recognitionRef.current?.stop()
+    setListening(false)
+    setStatus('')
   }
 
   const speak = (text) => {
@@ -40,7 +71,6 @@ export default function Chat({ messages, setMessages, apiKey, setIsSpeaking, set
     utter.lang = 'en-US'
     utter.rate = 0.95
 
-    // Simple frame generator based on text length
     const duration = Math.max(2, text.length * 0.06)
     const frames = []
     for (let i = 0; i < duration * 30; i++) {
@@ -71,7 +101,7 @@ export default function Chat({ messages, setMessages, apiKey, setIsSpeaking, set
   const handleSend = async (text) => {
     if (!text.trim()) return
     if (!apiKey) {
-      alert('Please set your Groq API key in Settings')
+      setStatus('Missing API key. Add VITE_GROQ_API_KEY to .env and restart.')
       return
     }
 
@@ -79,6 +109,7 @@ export default function Chat({ messages, setMessages, apiKey, setIsSpeaking, set
     const newMessages = [...messages, userMsg]
     setMessages(newMessages)
     setInput('')
+    setStatus('')
 
     try {
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -144,20 +175,39 @@ export default function Chat({ messages, setMessages, apiKey, setIsSpeaking, set
         <div ref={messagesEndRef} />
       </div>
 
+      {status && (
+        <div style={{ padding: '6px 16px', fontSize: 13, color: '#4fc3f7', textAlign: 'center' }}>
+          {status}
+        </div>
+      )}
+
       <div style={{ padding: 16, borderTop: '1px solid #333', display: 'flex', gap: 8 }}>
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSend(input)}
           placeholder="Type a message..."
-          style={{ flex: 1, padding: 10, borderRadius: 8, border: 'none', background: '#222' }}
+          style={{
+            flex: 1,
+            padding: 10,
+            borderRadius: 8,
+            border: '1px solid #444',
+            background: '#1e1e2e',
+            color: '#ffffff',
+            outline: 'none'
+          }}
         />
         <button
-          onClick={listening ? () => recognitionRef.current?.stop() : startListening}
+          onClick={listening ? stopListening : startListening}
           style={{
-            padding: '10px 14px', borderRadius: 8, border: 'none',
+            padding: '10px 14px',
+            borderRadius: 8,
+            border: 'none',
             background: listening ? '#ff5252' : '#4fc3f7',
-            color: 'black', cursor: 'pointer', fontWeight: 'bold'
+            color: 'black',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            minWidth: 70
           }}
         >
           {listening ? 'Stop' : 'Mic'}
@@ -165,8 +215,12 @@ export default function Chat({ messages, setMessages, apiKey, setIsSpeaking, set
         <button
           onClick={() => handleSend(input)}
           style={{
-            padding: '10px 14px', borderRadius: 8, border: 'none',
-            background: '#66bb6a', color: 'black', cursor: 'pointer'
+            padding: '10px 14px',
+            borderRadius: 8,
+            border: 'none',
+            background: '#66bb6a',
+            color: 'black',
+            cursor: 'pointer'
           }}
         >
           Send
