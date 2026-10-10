@@ -8,63 +8,56 @@ export default function Avatar({ isSpeaking, mouthOpen }) {
   const { scene } = useGLTF('/models/assistant.glb')
   const bones = useRef({})
 
-  // Find and cache important bones once
   useEffect(() => {
     scene.traverse((obj) => {
       if (obj.isBone) {
-        const name = obj.name.toLowerCase()
-        // Common MetaPerson / Mixamo-style bone names
-        if (name.includes('leftarm') || name.includes('left_arm') || name === 'leftarm') {
-          bones.current.leftUpperArm = obj
-        }
-        if (name.includes('rightarm') || name.includes('right_arm') || name === 'rightarm') {
-          bones.current.rightUpperArm = obj
-        }
-        if (name.includes('spine') || name.includes('chest')) {
-          bones.current.spine = obj
-        }
-        if (name.includes('head') && !name.includes('headtop')) {
-          bones.current.head = obj
-        }
+        bones.current[obj.name] = obj
       }
     })
-
-    // Log bones so you can see what is available
-    console.log('Available bones:', Object.keys(bones.current))
+    console.log('Bones loaded:', Object.keys(bones.current).length)
   }, [scene])
 
   useFrame((state) => {
     const t = state.clock.getElapsedTime()
+    const b = bones.current
 
-    // Keep whole model fixed in place
+    // Keep model fixed
     if (group.current) {
-      group.current.position.set(0, -1.15, 0)
+      group.current.position.set(0, -1.1, 0)
       group.current.rotation.set(0, 0, 0)
     }
 
-    // Lower arms from T-pose (simple rest pose)
-    if (bones.current.leftUpperArm) {
-      bones.current.leftUpperArm.rotation.z = THREE.MathUtils.degToRad(-75)
+    // Lower arms from T-pose (MetaPerson / Mixamo style names)
+    if (b.LeftArm) {
+      b.LeftArm.rotation.z = THREE.MathUtils.degToRad(-70)
     }
-    if (bones.current.rightUpperArm) {
-      bones.current.rightUpperArm.rotation.z = THREE.MathUtils.degToRad(75)
+    if (b.RightArm) {
+      b.RightArm.rotation.z = THREE.MathUtils.degToRad(70)
+    }
+
+    // Slight elbow bend
+    if (b.LeftForeArm) {
+      b.LeftForeArm.rotation.z = THREE.MathUtils.degToRad(-10)
+    }
+    if (b.RightForeArm) {
+      b.RightForeArm.rotation.z = THREE.MathUtils.degToRad(10)
     }
 
     // Light idle on spine
-    if (bones.current.spine) {
-      bones.current.spine.rotation.x = Math.sin(t * 1.2) * 0.03
-      bones.current.spine.rotation.y = Math.sin(t * 0.6) * 0.04
+    if (b.Spine1) {
+      b.Spine1.rotation.x = Math.sin(t * 1.1) * 0.025
+      b.Spine1.rotation.y = Math.sin(t * 0.5) * 0.03
     }
 
-    // Gentle head movement
-    if (bones.current.head) {
-      bones.current.head.rotation.y = Math.sin(t * 0.5) * 0.08
-      bones.current.head.rotation.x = Math.sin(t * 0.8) * 0.03
+    // Gentle head look
+    if (b.Head) {
+      b.Head.rotation.y = Math.sin(t * 0.45) * 0.06
+      b.Head.rotation.x = Math.sin(t * 0.7) * 0.025
     }
   })
 
   return (
-    <group ref={group} position={[0, -1.15, 0]} scale={1.0}>
+    <group ref={group} position={[0, -1.1, 0]} scale={1.0}>
       <primitive object={scene} />
     </group>
   )
