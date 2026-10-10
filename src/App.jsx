@@ -11,9 +11,6 @@ export default function App() {
     { role: 'assistant', content: 'Hello! I am your English tutor. Click the microphone and start speaking.' }
   ])
 
-  // API key is loaded from .env at build time (VITE_ prefix required)
-  const apiKey = import.meta.env.VITE_GROQ_API_KEY || ''
-
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex' }}>
       <div style={{ flex: 1, position: 'relative' }}>
@@ -29,7 +26,6 @@ export default function App() {
       <Chat
         messages={messages}
         setMessages={setMessages}
-        apiKey={apiKey}
         setIsSpeaking={setIsSpeaking}
         setMouthOpen={setMouthOpen}
       />

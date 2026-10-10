@@ -1,38 +1,29 @@
 import { useState, useRef, useEffect } from 'react'
 
-export default function Chat({ messages, setMessages, apiKey, setIsSpeaking, setMouthOpen }) {
+const API_URL = "http://localhost:8000/chat"
+
+export default function Chat({ messages, setMessages, setIsSpeaking, setMouthOpen }) {
   const [listening, setListening] = useState(false)
   const [input, setInput] = useState('')
   const [status, setStatus] = useState('')
   const recognitionRef = useRef(null)
   const messagesEndRef = useRef(null)
+  const audioRef = useRef(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Load voices for TTS
-  useEffect(() => {
-    if (window.speechSynthesis) {
-      window.speechSynthesis.getVoices()
-      window.speechSynthesis.onvoiceschanged = () => {
-        window.speechSynthesis.getVoices()
-      }
-    }
-  }, [])
-
   const startListening = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      setStatus('Speech recognition not supported. Please use Chrome.')
+      setStatus('Speech recognition not supported. Use Chrome.')
       return
     }
-
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     const recognition = new SpeechRecognition()
     recognition.lang = 'en-US'
     recognition.interimResults = true
     recognition.continuous = false
-    recognition.maxAlternatives = 1
 
     recognition.onstart = () => {
       setListening(true)
@@ -45,7 +36,6 @@ export default function Chat({ messages, setMessages, apiKey, setIsSpeaking, set
         transcript += e.results[i][0].transcript
       }
       setInput(transcript)
-
       if (e.results[e.results.length - 1].isFinal) {
         setStatus('Sending...')
         handleSend(transcript)
@@ -54,71 +44,36 @@ export default function Chat({ messages, setMessages, apiKey, setIsSpeaking, set
 
     recognition.onend = () => {
       setListening(false)
-      if (status === 'Listening... speak now') {
-        setStatus('Stopped listening')
-        setTimeout(() => setStatus(''), 1500)
-      }
+      if (!status.includes('Sending')) setStatus('')
     }
 
     recognition.onerror = (e) => {
       setListening(false)
-      if (e.error === 'aborted') {
-        setStatus('Listening aborted')
-      } else if (e.error === 'no-speech') {
-        setStatus('No speech detected')
-      } else {
-        setStatus('Mic error: ' + e.error)
-      }
-      setTimeout(() => setStatus(''), 2500)
+      setStatus(e.error === 'aborted' ? 'Listening aborted' : 'Mic: ' + e.error)
+      setTimeout(() => setStatus(''), 2000)
     }
 
     recognitionRef.current = recognition
-    try {
-      recognition.start()
-    } catch (err) {
-      setStatus('Could not start microphone')
-      setListening(false)
-    }
+    try { recognition.start() } catch { setStatus('Could not start mic') }
   }
 
   const stopListening = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop()
-    }
+    recognitionRef.current?.stop()
     setListening(false)
     setStatus('')
   }
 
-  const speak = (text) => {
-    if (!window.speechSynthesis) {
-      setStatus('Text-to-speech not supported in this browser')
-      return
-    }
+  const playAudio = (base64) => {
+    if (!base64) return
+    const audio = new Audio("data:audio/wav;base64," + base64)
+    audioRef.current = audio
 
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel()
-
-    const utter = new SpeechSynthesisUtterance(text)
-    utter.lang = 'en-US'
-    utter.rate = 0.95
-    utter.pitch = 1
-    utter.volume = 1
-
-    // Try to pick a good English voice
-    const voices = window.speechSynthesis.getVoices()
-    const preferred = voices.find(v => v.lang.startsWith('en') && /female|samantha|google|zira|aria/i.test(v.name))
-      || voices.find(v => v.lang.startsWith('en-US'))
-      || voices.find(v => v.lang.startsWith('en'))
-    if (preferred) utter.voice = preferred
-
-    // Simple mouth animation frames
-    const duration = Math.max(1.5, text.length * 0.055)
-    const frameCount = Math.floor(duration * 30)
+    const duration = audio.duration || 3
+    const frameCount = Math.floor(duration * 30) || 90
     const frames = []
     for (let i = 0; i < frameCount; i++) {
       const t = i / frameCount
-      const open = 0.3 + Math.abs(Math.sin(t * Math.PI * 6)) * 0.7
-      frames.push(open)
+      frames.push(0.3 + Math.abs(Math.sin(t * Math.PI * 6)) * 0.7)
     }
 
     let frameIdx = 0
@@ -129,39 +84,31 @@ export default function Chat({ messages, setMessages, apiKey, setIsSpeaking, set
       }
     }, 1000 / 30)
 
-    utter.onstart = () => {
+    audio.onplay = () => {
       setIsSpeaking(true)
       setStatus('Speaking...')
     }
-
-    utter.onend = () => {
+    audio.onended = () => {
       setIsSpeaking(false)
       setMouthOpen(0)
       setStatus('')
       clearInterval(interval)
     }
-
-    utter.onerror = (e) => {
-      console.error('TTS error:', e)
+    audio.onerror = () => {
       setIsSpeaking(false)
       setMouthOpen(0)
-      setStatus('TTS error')
+      setStatus('Audio play error')
       clearInterval(interval)
-      setTimeout(() => setStatus(''), 2000)
     }
 
-    // Small delay helps some browsers start speech after user gesture
-    setTimeout(() => {
-      window.speechSynthesis.speak(utter)
-    }, 100)
+    audio.play().catch(err => {
+      console.error(err)
+      setStatus('Could not play audio')
+    })
   }
 
   const handleSend = async (text) => {
     if (!text.trim()) return
-    if (!apiKey) {
-      setStatus('Missing API key. Add VITE_GROQ_API_KEY to .env and restart the server.')
-      return
-    }
 
     const userMsg = { role: 'user', content: text }
     const newMessages = [...messages, userMsg]
@@ -170,33 +117,20 @@ export default function Chat({ messages, setMessages, apiKey, setIsSpeaking, set
     setStatus('Thinking...')
 
     try {
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const res = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'openai/gpt-oss-120b',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a friendly English tutor. Correct mistakes gently, explain grammar simply, encourage the student, and keep responses concise and conversational. Focus on helping the user improve spoken and written English.'
-            },
-            ...newMessages.slice(-8)
-          ],
-          temperature: 0.7,
-          max_tokens: 300
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: newMessages.slice(-8) })
       })
 
-      const data = await res.json()
-      if (data.error) throw new Error(data.error.message)
+      if (!res.ok) throw new Error('API error ' + res.status)
 
-      const reply = data.choices[0].message.content
-      setMessages(prev => [...prev, { role: 'assistant', content: reply }])
+      const data = await res.json()
+      setMessages(prev => [...prev, { role: 'assistant', content: data.reply }])
       setStatus('')
-      speak(reply)
+      if (data.audio_base64) {
+        playAudio(data.audio_base64)
+      }
     } catch (err) {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Error: ' + err.message }])
       setStatus('')
@@ -248,27 +182,16 @@ export default function Chat({ messages, setMessages, apiKey, setIsSpeaking, set
           onKeyDown={e => e.key === 'Enter' && handleSend(input)}
           placeholder="Type a message..."
           style={{
-            flex: 1,
-            padding: 10,
-            borderRadius: 8,
-            border: '1px solid #444',
-            background: '#1e1e2e',
-            color: '#ffffff',
-            outline: 'none',
-            fontSize: 14
+            flex: 1, padding: 10, borderRadius: 8, border: '1px solid #444',
+            background: '#1e1e2e', color: '#ffffff', outline: 'none', fontSize: 14
           }}
         />
         <button
           onClick={listening ? stopListening : startListening}
           style={{
-            padding: '10px 14px',
-            borderRadius: 8,
-            border: 'none',
+            padding: '10px 14px', borderRadius: 8, border: 'none',
             background: listening ? '#ff5252' : '#4fc3f7',
-            color: 'black',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            minWidth: 70
+            color: 'black', cursor: 'pointer', fontWeight: 'bold', minWidth: 70
           }}
         >
           {listening ? 'Stop' : 'Mic'}
@@ -276,13 +199,8 @@ export default function Chat({ messages, setMessages, apiKey, setIsSpeaking, set
         <button
           onClick={() => handleSend(input)}
           style={{
-            padding: '10px 14px',
-            borderRadius: 8,
-            border: 'none',
-            background: '#66bb6a',
-            color: 'black',
-            cursor: 'pointer',
-            fontWeight: 'bold'
+            padding: '10px 14px', borderRadius: 8, border: 'none',
+            background: '#66bb6a', color: 'black', cursor: 'pointer', fontWeight: 'bold'
           }}
         >
           Send

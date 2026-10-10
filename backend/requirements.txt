@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+python-dotenv
+langgraph
+langchain
+langchain-groq
+kokoro>=0.9.4
+soundfile
+numpy
+pydantic
