@@ -21,43 +21,56 @@ export default function Avatar({ isSpeaking, mouthOpen }) {
     const t = state.clock.getElapsedTime()
     const b = bones.current
 
-    // Keep model fixed
+    // Keep model centered and fixed
     if (group.current) {
-      group.current.position.set(0, -1.1, 0)
+      group.current.position.set(0, -1.05, 0)
       group.current.rotation.set(0, 0, 0)
     }
 
-    // Lower arms from T-pose (MetaPerson / Mixamo style names)
+    // --- Rest pose: lower arms ---
+    // MetaPerson / Mixamo style: rotate around local X or Z depending on bind
     if (b.LeftArm) {
-      b.LeftArm.rotation.z = THREE.MathUtils.degToRad(-70)
+      b.LeftArm.rotation.set(0, 0, THREE.MathUtils.degToRad(-65))
     }
     if (b.RightArm) {
-      b.RightArm.rotation.z = THREE.MathUtils.degToRad(70)
+      b.RightArm.rotation.set(0, 0, THREE.MathUtils.degToRad(65))
     }
 
-    // Slight elbow bend
+    // Slight forearm bend
     if (b.LeftForeArm) {
-      b.LeftForeArm.rotation.z = THREE.MathUtils.degToRad(-10)
+      b.LeftForeArm.rotation.set(0, 0, THREE.MathUtils.degToRad(-15))
     }
     if (b.RightForeArm) {
-      b.RightForeArm.rotation.z = THREE.MathUtils.degToRad(10)
+      b.RightForeArm.rotation.set(0, 0, THREE.MathUtils.degToRad(15))
     }
 
-    // Light idle on spine
+    // --- Basic idle animation ---
+    // Soft spine breathing
     if (b.Spine1) {
-      b.Spine1.rotation.x = Math.sin(t * 1.1) * 0.025
-      b.Spine1.rotation.y = Math.sin(t * 0.5) * 0.03
+      b.Spine1.rotation.x = Math.sin(t * 1.3) * 0.03
+      b.Spine1.rotation.y = Math.sin(t * 0.45) * 0.04
+    }
+    if (b.Spine2) {
+      b.Spine2.rotation.x = Math.sin(t * 1.3 + 0.3) * 0.02
     }
 
-    // Gentle head look
+    // Head gentle look around
     if (b.Head) {
-      b.Head.rotation.y = Math.sin(t * 0.45) * 0.06
-      b.Head.rotation.x = Math.sin(t * 0.7) * 0.025
+      b.Head.rotation.y = Math.sin(t * 0.4) * 0.12
+      b.Head.rotation.x = Math.sin(t * 0.65) * 0.04
+    }
+
+    // Subtle shoulder movement
+    if (b.LeftShoulder) {
+      b.LeftShoulder.rotation.z = Math.sin(t * 0.8) * 0.05
+    }
+    if (b.RightShoulder) {
+      b.RightShoulder.rotation.z = Math.sin(t * 0.8 + Math.PI) * 0.05
     }
   })
 
   return (
-    <group ref={group} position={[0, -1.1, 0]} scale={1.0}>
+    <group ref={group} position={[0, -1.05, 0]} scale={1.05}>
       <primitive object={scene} />
     </group>
   )
