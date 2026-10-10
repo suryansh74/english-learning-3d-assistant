@@ -15,7 +15,6 @@ export default function Avatar({ isSpeaking, mouthOpen }) {
       }
     })
     console.log('Bones loaded:', Object.keys(bones.current).length)
-    // Expose bones to window so you can tweak them live in console
     window.avatarBones = bones.current
   }, [scene])
 
@@ -25,11 +24,11 @@ export default function Avatar({ isSpeaking, mouthOpen }) {
 
     // Keep model fixed and centered
     if (group.current) {
-      group.current.position.set(0, -1.0, 0)
+      group.current.position.set(0, -0.95, 0)
       group.current.rotation.set(0, 0, 0)
     }
 
-    // --- Rest pose: try X-axis rotation (common for MetaPerson/Mixamo) ---
+    // Rest pose – X axis worked well
     if (b.LeftArm) {
       b.LeftArm.rotation.set(THREE.MathUtils.degToRad(70), 0, 0)
     }
@@ -44,7 +43,7 @@ export default function Avatar({ isSpeaking, mouthOpen }) {
       b.RightForeArm.rotation.set(THREE.MathUtils.degToRad(10), 0, 0)
     }
 
-    // Idle always
+    // Idle
     if (b.Spine1) {
       b.Spine1.rotation.x = Math.sin(t * 1.2) * 0.025
       b.Spine1.rotation.y = Math.sin(t * 0.4) * 0.03
@@ -54,10 +53,10 @@ export default function Avatar({ isSpeaking, mouthOpen }) {
       b.Head.rotation.x = Math.sin(t * 0.6) * 0.03
     }
 
-    // Extra movement only while speaking (audio is playing)
+    // Speaking animation
     if (isSpeaking) {
       if (b.Head) {
-        b.Head.rotation.x += Math.sin(t * 4) * 0.06   // nodding
+        b.Head.rotation.x += Math.sin(t * 4) * 0.06
       }
       if (b.LeftArm) {
         b.LeftArm.rotation.x += Math.sin(t * 2.5) * 0.15
@@ -72,7 +71,7 @@ export default function Avatar({ isSpeaking, mouthOpen }) {
   })
 
   return (
-    <group ref={group} position={[0, -1.0, 0]} scale={1.0}>
+    <group ref={group} position={[0, -0.95, 0]} scale={1.0}>
       <primitive object={scene} />
     </group>
   )
