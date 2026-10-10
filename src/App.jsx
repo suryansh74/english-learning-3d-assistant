@@ -14,12 +14,17 @@ export default function App() {
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex' }}>
       <div style={{ flex: 1, position: 'relative' }}>
-        <Canvas camera={{ position: [0, 1.4, 3.2], fov: 50 }}>
+        <Canvas camera={{ position: [0, 1.2, 2.8], fov: 45 }}>
           <ambientLight intensity={0.7} />
           <directionalLight position={[5, 5, 5]} intensity={1.2} />
           <Environment preset="city" />
           <Avatar isSpeaking={isSpeaking} mouthOpen={mouthOpen} />
-          <OrbitControls target={[0, 1.3, 0]} enablePan={false} />
+          <OrbitControls 
+            target={[0, 1.0, 0]} 
+            enablePan={false} 
+            minDistance={2}
+            maxDistance={5}
+          />
         </Canvas>
       </div>
 
